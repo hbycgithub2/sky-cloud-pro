@@ -1,0 +1,40 @@
+server:
+  port: 8080
+spring:
+  datasource:
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+    url: jdbc:p6spy:mysql://localhost:3306/cloud_order?useSSL=false
+    username: root
+    password: root
+  application:
+    name: orderservice
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      discovery:
+       cluster-name: HZ #集群名称，这里HZ指杭州
+       #namespace: 1a72929d-8643-4c75-a511-e086974e8429 # dev环境
+       ephemeral: true # 是否是临时实例 true=临时实例（推荐，适合开发环境）, false=持久化实例（需要Raft协议支持）
+mybatis:
+  type-aliases-package: cn.itcast.user.pojo
+  configuration:
+    map-underscore-to-camel-case: true
+logging:
+  level:
+    cn.itcast: info
+    cn.itcast.order.mapper: off
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId},%X{spanId}] [%thread] %-5level %logger{36} - %msg%n"
+    dateformat: MM-dd HH:mm:ss:SSS
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://127.0.0.1:10086/eureka/
+userservice:
+  ribbon:
+    NFLoadBalancerRuleClassName: com.alibaba.cloud.nacos.ribbon.NacosRule # NacosRule负载均衡规则
+#   NFLoadBalancerRuleClassName: com.netflix.loadbalancer.RandomRule # 负载均衡规则
+ribbon:
+  eager-load:
+    enabled: true #开启饥饿加载
+    clients: userservice # 指定饥饿加载的服务名称
