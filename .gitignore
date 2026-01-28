@@ -25,7 +25,6 @@ target/
 Thumbs.db
 
 # 文档和脚本文件（不提交）
-*.md
 *.bat
 *.ps1
 *.txt
