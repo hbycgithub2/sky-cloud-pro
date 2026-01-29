@@ -101,8 +101,25 @@ server {
 
 **问题1：跨域问题，前端请求被浏览器拦截**
 
+问题流程：
+```
+前端请求 → Nginx → 浏览器检查跨域 → 缺少CORS头 → 请求被拦截
+```
+
 解决方案：Nginx配置全局跨域
 
+解决流程：
+```
+[问题前]
+前端(localhost:3000) → Nginx(localhost:8005) → 浏览器检查 → 缺少CORS头 → 拦截
+问题：跨域请求被浏览器拦截
+
+[问题后]
+前端(localhost:3000) → Nginx(localhost:8005) → 添加CORS头 → 浏览器检查 → 通过
+优势：跨域请求正常访问
+```
+
+关键配置：
 ```nginx
 server {
     # 跨域配置
@@ -117,10 +134,31 @@ server {
 }
 ```
 
+---
+
 **问题2：静态资源每次都走后端，慢**
+
+问题流程：
+```
+请求图片 → Nginx → Gateway → 后端服务 → 读取文件 → 返回（50ms）
+问题：每次都走完整链路，响应慢
+```
 
 解决方案：Nginx配置静态资源缓存
 
+解决流程：
+```
+[问题前]
+请求图片 → Nginx → Gateway → 后端服务 → 读取文件 → 返回
+响应时间：50ms，每次都走后端
+
+[问题后]
+第一次：请求图片 → Nginx → Gateway → 后端 → 返回 → Nginx缓存
+后续：请求图片 → Nginx缓存命中 → 直接返回
+响应时间：5ms，快10倍
+```
+
+关键配置：
 ```nginx
 location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2)$ {
     root html;
@@ -130,10 +168,32 @@ location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2)$ {
 }
 ```
 
+---
+
 **问题3：Gateway单点故障，挂了全挂**
+
+问题流程：
+```
+用户请求 → Nginx → Gateway(10010) → Gateway挂了 → 所有请求失败
+问题：单点故障，可用性差
+```
 
 解决方案：Nginx负载均衡到多台Gateway
 
+解决流程：
+```
+[问题前]
+用户请求 → Nginx → Gateway(10010) → Gateway挂了 → 全部失败
+问题：单点故障
+
+[问题后]
+用户请求 → Nginx → 负载均衡 → Gateway1(10010) ✓
+                              → Gateway2(10010) ✓
+                              → Gateway3(10010) ✓
+优势：一台挂了，自动切换到其他台
+```
+
+关键配置：
 ```nginx
 upstream gateway_backend {
     server 192.168.1.1:10010 weight=1;    # 权重1
@@ -143,10 +203,30 @@ upstream gateway_backend {
 }
 ```
 
+---
+
 **问题4：改配置要重启Nginx，服务中断**
+
+问题流程：
+```
+修改配置 → 重启Nginx → 服务中断（5-10秒） → 用户请求失败
+问题：服务中断，影响用户
+```
 
 解决方案：热重载，不中断服务
 
+解决流程：
+```
+[问题前]
+修改配置 → nginx -s stop → nginx启动 → 服务中断5-10秒
+问题：服务中断
+
+[问题后]
+修改配置 → nginx -t（测试配置） → nginx -s reload（热重载） → 无中断
+优势：0秒中断，用户无感知
+```
+
+关键命令：
 ```bash
 # 测试配置是否正确
 nginx -t
@@ -155,10 +235,32 @@ nginx -t
 nginx -s reload
 ```
 
+---
+
 **问题5：Gateway不知道用户真实IP，只看到127.0.0.1**
+
+问题流程：
+```
+用户(IP:1.2.3.4) → Nginx → Gateway → Gateway看到IP:127.0.0.1
+问题：无法获取用户真实IP，无法限流、黑名单
+```
 
 解决方案：Nginx传递真实IP
 
+解决流程：
+```
+[问题前]
+用户(IP:1.2.3.4) → Nginx(127.0.0.1) → Gateway → Gateway看到127.0.0.1
+问题：无法获取真实IP
+
+[问题后]
+用户(IP:1.2.3.4) → Nginx → 添加Header(X-Real-IP:1.2.3.4) → Gateway
+                                                            ↓
+                                          Gateway看到真实IP:1.2.3.4
+优势：可以限流、黑名单、日志记录
+```
+
+关键配置：
 ```nginx
 location /api/ {
     proxy_pass http://gateway_backend/;
